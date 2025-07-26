@@ -1,4 +1,3 @@
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -9,16 +8,14 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.scene.effect.DropShadow;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 
 public class ReturnForm {
     private Stage dialog;
-    private String result; // Return notes
-    private ObservableList<BorrowRecord> borrowData;
+    private String result;
     private BorrowRecord selectedRecord;
+    private ObservableList<BorrowRecord> borrowData;
     
     public ReturnForm(Stage parent, ObservableList<BorrowRecord> borrowData) {
         this.borrowData = borrowData;
@@ -29,7 +26,7 @@ public class ReturnForm {
         dialog = new Stage();
         dialog.initModality(Modality.WINDOW_MODAL);
         dialog.initOwner(parent);
-        dialog.setTitle("Form Pengembalian Alat");
+        dialog.setTitle("Pengembalian Alat");
         dialog.setResizable(false);
         
         VBox mainContainer = new VBox(20);
@@ -47,59 +44,91 @@ public class ReturnForm {
         formContainer.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
         formContainer.setEffect(new DropShadow(5, Color.rgb(0, 0, 0, 0.1)));
         
-        // Borrowed items selection
-        ComboBox<String> borrowCombo = new ComboBox<>();
-        borrowCombo.setPromptText("Pilih Item yang Akan Dikembalikan");
+        // Active borrows only
+        FilteredList<BorrowRecord> activeBorrows = new FilteredList<>(borrowData, 
+            record -> "Dipinjam".equals(record.getStatus()) || "Terlambat".equals(record.getStatus()));
+        
+        ComboBox<BorrowRecord> borrowCombo = new ComboBox<>();
+        borrowCombo.getItems().addAll(activeBorrows);
+        borrowCombo.setPromptText("Pilih Peminjaman yang Akan Dikembalikan");
         borrowCombo.setPrefHeight(35);
         borrowCombo.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
         
-        // Populate with borrowed items
-        for (BorrowRecord record : borrowData) {
-            if ("Dipinjam".equals(record.getStatus()) || "Terlambat".equals(record.getStatus())) {
-                String displayText = String.format("%s - %s (Peminjam: %s)", 
-                    record.getInventoryId(), record.getInventoryName(), record.getBorrowerName());
-                borrowCombo.getItems().add(displayText);
+        // Custom cell factory to display borrow info
+        borrowCombo.setCellFactory(param -> new ListCell<BorrowRecord>() {
+            @Override
+            protected void updateItem(BorrowRecord record, boolean empty) {
+                super.updateItem(record, empty);
+                if (empty || record == null) {
+                    setText(null);
+                } else {
+                    String status = "Terlambat".equals(record.getStatus()) ? " [TERLAMBAT]" : "";
+                    setText(record.getBorrowId() + " - " + record.getInventoryName() + 
+                           " (oleh: " + record.getBorrowerName() + ")" + status);
+                }
             }
-        }
+        });
+        
+        borrowCombo.setButtonCell(new ListCell<BorrowRecord>() {
+            @Override
+            protected void updateItem(BorrowRecord record, boolean empty) {
+                super.updateItem(record, empty);
+                if (empty || record == null) {
+                    setText(null);
+                } else {
+                    setText(record.getBorrowId() + " - " + record.getInventoryName());
+                }
+            }
+        });
         
         // Borrow details display
-        TextArea borrowDetailsArea = new TextArea();
-        borrowDetailsArea.setPromptText("Detail peminjaman akan ditampilkan di sini...");
-        borrowDetailsArea.setPrefHeight(120);
-        borrowDetailsArea.setEditable(false);
-        borrowDetailsArea.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
+        VBox detailsContainer = new VBox(10);
+        detailsContainer.setPadding(new Insets(15));
+        detailsContainer.setStyle("-fx-background-color: #F8F9FA; -fx-background-radius: 5; -fx-border-color: #DEE2E6; -fx-border-radius: 5;");
         
-        // Status indicator
-        Label statusLabel = new Label("");
-        statusLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-        statusLabel.setWrapText(true);
+        Label detailsTitle = new Label("Detail Peminjaman:");
+        detailsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        detailsTitle.setTextFill(Color.web("#2C3E50"));
+        
+        Label borrowerLabel = new Label("Peminjam: -");
+        Label borrowDateLabel = new Label("Tanggal Pinjam: -");
+        Label returnDateLabel = new Label("Tanggal Kembali: -");
+        Label statusLabel = new Label("Status: -");
+        
+        detailsContainer.getChildren().addAll(detailsTitle, borrowerLabel, borrowDateLabel, returnDateLabel, statusLabel);
         
         // Update details when selection changes
         borrowCombo.setOnAction(e -> {
-            String selectedItem = borrowCombo.getValue();
-            if (selectedItem != null) {
-                String borrowId = selectedItem.split(" - ")[0];
-                selectedRecord = borrowData.stream()
-                    .filter(record -> record.getInventoryId().equals(borrowId) && 
-                            ("Dipinjam".equals(record.getStatus()) || "Terlambat".equals(record.getStatus())))
-                    .findFirst()
-                    .orElse(null);
+            BorrowRecord selected = borrowCombo.getValue();
+            if (selected != null) {
+                borrowerLabel.setText("Peminjam: " + selected.getBorrowerName() + " (" + selected.getBorrowerType() + ")");
+                borrowDateLabel.setText("Tanggal Pinjam: " + selected.getBorrowDate());
+                returnDateLabel.setText("Tanggal Kembali: " + selected.getReturnDate());
+                statusLabel.setText("Status: " + selected.getStatus());
                 
-                if (selectedRecord != null) {
-                    updateBorrowDetails(borrowDetailsArea, statusLabel, selectedRecord);
+                // Color code status
+                if ("Terlambat".equals(selected.getStatus())) {
+                    statusLabel.setTextFill(Color.web("#E74C3C"));
+                    statusLabel.setStyle("-fx-font-weight: bold;");
+                } else {
+                    statusLabel.setTextFill(Color.web("#27AE60"));
+                    statusLabel.setStyle("-fx-font-weight: bold;");
                 }
             }
         });
         
         // Return condition
-        ComboBox<String> conditionCombo = createComboBox("Kondisi Alat Saat Dikembalikan", 
-            new String[]{"Baik", "Rusak", "Perlu Perbaikan"});
-        conditionCombo.setValue("Baik"); // Default
+        ComboBox<String> conditionCombo = createComboBox("Kondisi Alat saat Dikembalikan", 
+            new String[]{"Baik", "Rusak Ringan", "Rusak Berat", "Hilang"});
         
         // Return notes
+        Label notesLabel = new Label("Catatan Pengembalian:");
+        notesLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        notesLabel.setTextFill(Color.web("#2C3E50"));
+        
         TextArea notesArea = new TextArea();
-        notesArea.setPromptText("Catatan pengembalian (kondisi alat, masalah yang ditemukan, dll.)");
-        notesArea.setPrefHeight(80);
+        notesArea.setPromptText("Catatan kondisi alat, masalah yang ditemukan, dll...");
+        notesArea.setPrefRowCount(4);
         notesArea.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
         
         // Buttons
@@ -107,7 +136,7 @@ public class ReturnForm {
         buttonContainer.setStyle("-fx-alignment: center;");
         
         Button returnButton = new Button("Kembalikan");
-        returnButton.setPrefWidth(120);
+        returnButton.setPrefWidth(100);
         returnButton.setStyle("-fx-background-color: #27AE60; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
         
         Button cancelButton = new Button("Batal");
@@ -116,15 +145,15 @@ public class ReturnForm {
         
         // Button actions
         returnButton.setOnAction(e -> {
-            if (validateForm(borrowCombo, conditionCombo)) {
-                // Create return notes
-                StringBuilder notes = new StringBuilder();
-                if (!notesArea.getText().trim().isEmpty()) {
-                    notes.append(notesArea.getText().trim()).append(" | ");
-                }
-                notes.append("Kondisi: ").append(conditionCombo.getValue());
+            if (validateForm(borrowCombo, conditionCombo, notesArea)) {
+                selectedRecord = borrowCombo.getValue();
                 
-                result = notes.toString();
+                String notes = "Kondisi: " + conditionCombo.getValue();
+                if (!notesArea.getText().trim().isEmpty()) {
+                    notes += "\nCatatan: " + notesArea.getText().trim();
+                }
+                
+                result = notes;
                 dialog.close();
             }
         });
@@ -135,12 +164,10 @@ public class ReturnForm {
         
         // Add all components to form
         formContainer.getChildren().addAll(
-            createFieldContainer("Pilih Item:", borrowCombo),
-            createFieldContainer("Detail Peminjaman:", borrowDetailsArea),
-            statusLabel,
-            new Separator(),
+            createFieldContainer("Pilih Peminjaman:", borrowCombo),
+            detailsContainer,
             createFieldContainer("Kondisi Alat:", conditionCombo),
-            createFieldContainer("Catatan Pengembalian:", notesArea),
+            createFieldContainer("Catatan:", notesArea),
             buttonContainer
         );
         
@@ -148,55 +175,6 @@ public class ReturnForm {
         
         Scene scene = new Scene(mainContainer, 550, 700);
         dialog.setScene(scene);
-    }
-    
-    private void updateBorrowDetails(TextArea detailsArea, Label statusLabel, BorrowRecord record) {
-        // Calculate days
-        LocalDate borrowDate = LocalDate.parse(record.getBorrowDate());
-        LocalDate returnDate = LocalDate.parse(record.getReturnDate());
-        LocalDate today = LocalDate.now();
-        
-        long daysBorrowed = ChronoUnit.DAYS.between(borrowDate, today);
-        long daysOverdue = today.isAfter(returnDate) ? ChronoUnit.DAYS.between(returnDate, today) : 0;
-        
-        String details = String.format(
-            "ID Peminjaman: %s\n" +
-            "Alat: %s\n" +
-            "Peminjam: %s (%s)\n" +
-            "Tanggal Pinjam: %s\n" +
-            "Tanggal Kembali (Rencana): %s\n" +
-            "Lama Dipinjam: %d hari\n" +
-            "Status: %s",
-            record.getBorrowId(),
-            record.getInventoryName(),
-            record.getBorrowerName(),
-            record.getBorrowerType(),
-            record.getBorrowDate(),
-            record.getReturnDate(),
-            daysBorrowed,
-            record.getStatus()
-        );
-        
-        if (!record.getNotes().isEmpty()) {
-            details += "\nCatatan Peminjaman: " + record.getNotes();
-        }
-        
-        detailsArea.setText(details);
-        
-        // Update status label
-        if (daysOverdue > 0) {
-            statusLabel.setText("⚠️ TERLAMBAT " + daysOverdue + " HARI! Kemungkinan ada denda.");
-            statusLabel.setTextFill(Color.web("#E74C3C"));
-        } else {
-            long daysLeft = ChronoUnit.DAYS.between(today, returnDate);
-            if (daysLeft == 0) {
-                statusLabel.setText("📅 Hari terakhir pengembalian adalah hari ini.");
-                statusLabel.setTextFill(Color.web("#E67E22"));
-            } else if (daysLeft > 0) {
-                statusLabel.setText("✅ Pengembalian tepat waktu. Sisa waktu: " + daysLeft + " hari.");
-                statusLabel.setTextFill(Color.web("#27AE60"));
-            }
-        }
     }
     
     private ComboBox<String> createComboBox(String prompt, String[] items) {
@@ -217,14 +195,14 @@ public class ReturnForm {
         return container;
     }
     
-    private boolean validateForm(ComboBox<String> borrowCombo, ComboBox<String> conditionCombo) {
+    private boolean validateForm(ComboBox<BorrowRecord> borrowCombo, ComboBox<String> conditionCombo, TextArea notesArea) {
         if (borrowCombo.getValue() == null) {
-            showAlert("Error", "Pilih item yang akan dikembalikan!", Alert.AlertType.ERROR);
+            showAlert("Error", "Peminjaman harus dipilih!", Alert.AlertType.ERROR);
             return false;
         }
         
         if (conditionCombo.getValue() == null) {
-            showAlert("Error", "Pilih kondisi alat saat dikembalikan!", Alert.AlertType.ERROR);
+            showAlert("Error", "Kondisi alat harus dipilih!", Alert.AlertType.ERROR);
             return false;
         }
         
@@ -239,12 +217,12 @@ public class ReturnForm {
         alert.showAndWait();
     }
     
-    public BorrowRecord getSelectedRecord() {
-        return selectedRecord;
-    }
-    
     public String showAndWait() {
         dialog.showAndWait();
         return result;
+    }
+    
+    public BorrowRecord getSelectedRecord() {
+        return selectedRecord;
     }
 }

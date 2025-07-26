@@ -1,0 +1,2 @@
+MaintenanceID,InventoryID,InventoryName,IssueType,Priority,ReportedBy,Description,ReportedDate,CompletedDate,Status,Technician,Cost,Solution
+MNT0001,HW0001,Laptop,Upgrade,Upgrade SSD,HiLvan,"Amannnn",2025-07-27,2025-07-27,Selesai,Hilvann,250000,"Upgrading"

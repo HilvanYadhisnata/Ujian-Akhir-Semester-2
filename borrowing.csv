@@ -1,2 +1,3 @@
-Borrow ID,Inventory ID,Inventory Name,Borrower Name,Borrower Type,Borrow Date,Return Date,Actual Return Date,Status,Notes
-BR0001,HW0001,Laptop,Hilvan,Mahasiswa,2025-07-25,2025-08-01,2025-07-25,Dikembalikan,Kondisi: Perlu Perbaikan
+BorrowID,InventoryID,InventoryName,BorrowerName,BorrowerType,BorrowerContact,BorrowDate,ReturnDate,ActualReturnDate,Status,Notes
+BRW0001,HW0001,"Laptop","Hilvan",Mahasiswa,"08240124124",2025-07-26,2025-08-02,2025-07-26,Dikembalikan,"Kondisi: Baik"
+BRW0002,HW0001,"Laptop","Hilvannn",Dosen,"12348904y12",2025-07-27,2025-08-12,2025-07-27,Dikembalikan,"Kondisi: Baik"

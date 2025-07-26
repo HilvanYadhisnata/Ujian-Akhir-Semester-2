@@ -1,4 +1,3 @@
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -9,8 +8,11 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.scene.effect.DropShadow;
+import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class BorrowForm {
     private Stage dialog;
@@ -26,7 +28,7 @@ public class BorrowForm {
         dialog = new Stage();
         dialog.initModality(Modality.WINDOW_MODAL);
         dialog.initOwner(parent);
-        dialog.setTitle("Form Peminjaman Alat");
+        dialog.setTitle("Peminjaman Baru");
         dialog.setResizable(false);
         
         VBox mainContainer = new VBox(20);
@@ -44,127 +46,164 @@ public class BorrowForm {
         formContainer.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
         formContainer.setEffect(new DropShadow(5, Color.rgb(0, 0, 0, 0.1)));
         
-        // Available items selection
-        ComboBox<String> itemCombo = new ComboBox<>();
-        itemCombo.setPromptText("Pilih Alat yang Akan Dipinjam");
-        itemCombo.setPrefHeight(35);
-        itemCombo.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
+        // ID Field - Auto-generated, shown but disabled
+        TextField idField = createTextField("ID Peminjaman (Auto-generated)", "");
+        idField.setDisable(true);
         
-        // Populate with available items
-        for (InventoryItem item : inventoryData) {
-            if ("Tersedia".equals(item.getStatus()) && "Baik".equals(item.getKondisi())) {
-                itemCombo.getItems().add(item.getId() + " - " + item.getNama() + " (" + item.getMerk() + ")");
-            }
-        }
+        // Available items only
+        FilteredList<InventoryItem> availableItems = new FilteredList<>(inventoryData, 
+            item -> "Tersedia".equals(item.getStatus()));
         
-        // Item details display
-        TextArea itemDetailsArea = new TextArea();
-        itemDetailsArea.setPromptText("Detail alat akan ditampilkan di sini...");
-        itemDetailsArea.setPrefHeight(80);
-        itemDetailsArea.setEditable(false);
-        itemDetailsArea.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
+        ComboBox<InventoryItem> inventoryCombo = new ComboBox<>();
+        inventoryCombo.getItems().addAll(availableItems);
+        inventoryCombo.setPromptText("Pilih Alat yang Tersedia");
+        inventoryCombo.setPrefHeight(35);
+        inventoryCombo.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
         
-        // Update item details when selection changes
-        itemCombo.setOnAction(e -> {
-            String selectedItem = itemCombo.getValue();
-            if (selectedItem != null) {
-                String itemId = selectedItem.split(" - ")[0];
-                InventoryItem item = inventoryData.stream()
-                    .filter(inv -> inv.getId().equals(itemId))
-                    .findFirst()
-                    .orElse(null);
-                
-                if (item != null) {
-                    itemDetailsArea.setText(String.format(
-                        "ID: %s\nNama: %s\nKategori: %s\nMerk: %s\nKondisi: %s\nLokasi: %s",
-                        item.getId(), item.getNama(), item.getKategori(),
-                        item.getMerk(), item.getKondisi(), item.getLokasi()
-                    ));
+        // Custom cell factory to display item name and ID
+        inventoryCombo.setCellFactory(param -> new ListCell<InventoryItem>() {
+            @Override
+            protected void updateItem(InventoryItem item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getId() + " - " + item.getNama() + " (" + item.getLokasi() + ")");
                 }
             }
         });
         
-        // Borrower information
+        inventoryCombo.setButtonCell(new ListCell<InventoryItem>() {
+            @Override
+            protected void updateItem(InventoryItem item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getId() + " - " + item.getNama());
+                }
+            }
+        });
+        
         TextField borrowerNameField = createTextField("Nama Peminjam", "");
         
         ComboBox<String> borrowerTypeCombo = createComboBox("Tipe Peminjam", 
-            new String[]{"Mahasiswa", "Dosen", "Staff", "Peneliti"});
+            new String[]{"Mahasiswa", "Dosen", "Staff", "Tamu"});
         
-        // Dates
-        DatePicker borrowDatePicker = new DatePicker(LocalDate.now());
-        borrowDatePicker.setPromptText("Tanggal Peminjaman");
+        TextField contactField = createTextField("Kontak (Email/No. HP)", "");
+        
+        DatePicker borrowDatePicker = new DatePicker();
+        borrowDatePicker.setPromptText("Tanggal Pinjam");
+        borrowDatePicker.setValue(LocalDate.now());
         borrowDatePicker.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
-        borrowDatePicker.setDisable(true); // Today's date, not editable
         
-        DatePicker returnDatePicker = new DatePicker(LocalDate.now().plusDays(7)); // Default 7 days
-        returnDatePicker.setPromptText("Tanggal Pengembalian (Rencana)");
+        // PERBAIKAN: Batasi pemilihan tanggal peminjaman tidak boleh kurang dari hari ini
+        borrowDatePicker.setDayCellFactory(picker -> new DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                if (date.isBefore(LocalDate.now())) {
+                    setDisable(true);
+                    setStyle("-fx-background-color: #ffc0cb;");
+                }
+            }
+        });
+        
+        DatePicker returnDatePicker = new DatePicker();
+        returnDatePicker.setPromptText("Tanggal Kembali");
+        returnDatePicker.setValue(LocalDate.now().plusWeeks(1)); // Default 1 week
         returnDatePicker.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
         
-        // Notes
+        // PERBAIKAN: Update tanggal kembali otomatis ketika tanggal pinjam berubah
+        borrowDatePicker.setOnAction(e -> {
+            LocalDate borrowDate = borrowDatePicker.getValue();
+            if (borrowDate != null) {
+                // Set tanggal kembali minimum 1 hari setelah tanggal pinjam
+                LocalDate minReturnDate = borrowDate.plusDays(1);
+                if (returnDatePicker.getValue() == null || returnDatePicker.getValue().isBefore(minReturnDate)) {
+                    returnDatePicker.setValue(borrowDate.plusWeeks(1)); // Default 1 minggu
+                }
+                
+                // Update day cell factory untuk return date picker
+                returnDatePicker.setDayCellFactory(picker -> new DateCell() {
+                    @Override
+                    public void updateItem(LocalDate date, boolean empty) {
+                        super.updateItem(date, empty);
+                        if (date.isBefore(minReturnDate)) {
+                            setDisable(true);
+                            setStyle("-fx-background-color: #ffc0cb;");
+                        }
+                    }
+                });
+            }
+        });
+        
+        // Notes field
+        Label notesLabel = new Label("Catatan (Opsional):");
+        notesLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        notesLabel.setTextFill(Color.web("#2C3E50"));
+        
         TextArea notesArea = new TextArea();
-        notesArea.setPromptText("Catatan (opsional)");
-        notesArea.setPrefHeight(60);
+        notesArea.setPromptText("Tujuan peminjaman, catatan khusus, dll...");
+        notesArea.setPrefRowCount(3);
         notesArea.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
         
         // Buttons
         HBox buttonContainer = new HBox(15);
         buttonContainer.setStyle("-fx-alignment: center;");
         
-        Button borrowButton = new Button("Pinjam");
-        borrowButton.setPrefWidth(100);
-        borrowButton.setStyle("-fx-background-color: #27AE60; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+        Button saveButton = new Button("Simpan");
+        saveButton.setPrefWidth(100);
+        saveButton.setStyle("-fx-background-color: #27AE60; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
         
         Button cancelButton = new Button("Batal");
         cancelButton.setPrefWidth(100);
         cancelButton.setStyle("-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
         
         // Button actions
-        borrowButton.setOnAction(e -> {
-            if (validateForm(itemCombo, borrowerNameField, borrowerTypeCombo, returnDatePicker)) {
-                String selectedItem = itemCombo.getValue();
-                String itemId = selectedItem.split(" - ")[0];
-                InventoryItem item = inventoryData.stream()
-                    .filter(inv -> inv.getId().equals(itemId))
-                    .findFirst()
-                    .orElse(null);
+        saveButton.setOnAction(e -> {
+            if (validateForm(inventoryCombo, borrowerNameField, borrowerTypeCombo, 
+                           contactField, borrowDatePicker, returnDatePicker)) {
                 
-                if (item != null) {
-                    result = new BorrowRecord(
-                        "", // Will be generated in main app
-                        item.getId(),
-                        item.getNama(),
-                        borrowerNameField.getText().trim(),
-                        borrowerTypeCombo.getValue(),
-                        borrowDatePicker.getValue().toString(),
-                        returnDatePicker.getValue().toString(),
-                        "", // No actual return date yet
-                        "Dipinjam",
-                        notesArea.getText().trim()
-                    );
-                    dialog.close();
-                }
+                InventoryItem selectedItem = inventoryCombo.getValue();
+                
+                result = new BorrowRecord(
+                    idField.getText().trim(), // Will be overridden in main app
+                    selectedItem.getId(),
+                    selectedItem.getNama(),
+                    borrowerNameField.getText().trim(),
+                    borrowerTypeCombo.getValue(),
+                    contactField.getText().trim(),
+                    borrowDatePicker.getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                    returnDatePicker.getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                    "", // No actual return date yet
+                    "Dipinjam",
+                    notesArea.getText().trim()
+                );
+                dialog.close();
             }
         });
         
         cancelButton.setOnAction(e -> dialog.close());
         
-        buttonContainer.getChildren().addAll(borrowButton, cancelButton);
+        buttonContainer.getChildren().addAll(saveButton, cancelButton);
         
         // Add all components to form
         formContainer.getChildren().addAll(
-            createFieldContainer("Pilih Alat:", itemCombo),
-            createFieldContainer("Detail Alat:", itemDetailsArea),
+            createFieldContainer("ID:", idField),
+            createFieldContainer("Alat:", inventoryCombo),
             createFieldContainer("Nama Peminjam:", borrowerNameField),
             createFieldContainer("Tipe Peminjam:", borrowerTypeCombo),
-            createFieldContainer("Tanggal Peminjaman:", borrowDatePicker),
-            createFieldContainer("Tanggal Pengembalian:", returnDatePicker),
+            createFieldContainer("Kontak:", contactField),
+            createFieldContainer("Tanggal Pinjam:", borrowDatePicker),
+            createFieldContainer("Tanggal Kembali:", returnDatePicker),
             createFieldContainer("Catatan:", notesArea),
             buttonContainer
         );
         
         mainContainer.getChildren().addAll(headerLabel, formContainer);
         
-        Scene scene = new Scene(mainContainer, 500, 700);
+        Scene scene = new Scene(mainContainer, 500, 750);
         dialog.setScene(scene);
     }
     
@@ -194,11 +233,12 @@ public class BorrowForm {
         return container;
     }
     
-    private boolean validateForm(ComboBox<String> itemCombo, TextField borrowerNameField,
-                                ComboBox<String> borrowerTypeCombo, DatePicker returnDatePicker) {
+    private boolean validateForm(ComboBox<InventoryItem> inventoryCombo, TextField borrowerNameField,
+                                ComboBox<String> borrowerTypeCombo, TextField contactField,
+                                DatePicker borrowDatePicker, DatePicker returnDatePicker) {
         
-        if (itemCombo.getValue() == null) {
-            showAlert("Error", "Pilih alat yang akan dipinjam!", Alert.AlertType.ERROR);
+        if (inventoryCombo.getValue() == null) {
+            showAlert("Error", "Alat harus dipilih!", Alert.AlertType.ERROR);
             return false;
         }
         
@@ -212,13 +252,29 @@ public class BorrowForm {
             return false;
         }
         
-        if (returnDatePicker.getValue() == null) {
-            showAlert("Error", "Tanggal pengembalian harus dipilih!", Alert.AlertType.ERROR);
+        if (contactField.getText().trim().isEmpty()) {
+            showAlert("Error", "Kontak tidak boleh kosong!", Alert.AlertType.ERROR);
             return false;
         }
         
-        if (returnDatePicker.getValue().isBefore(LocalDate.now())) {
-            showAlert("Error", "Tanggal pengembalian tidak boleh sebelum hari ini!", Alert.AlertType.ERROR);
+        if (borrowDatePicker.getValue() == null) {
+            showAlert("Error", "Tanggal pinjam harus dipilih!", Alert.AlertType.ERROR);
+            return false;
+        }
+        
+        if (returnDatePicker.getValue() == null) {
+            showAlert("Error", "Tanggal kembali harus dipilih!", Alert.AlertType.ERROR);
+            return false;
+        }
+        
+        // PERBAIKAN: Validasi tanggal peminjaman tidak boleh kurang dari hari ini
+        if (borrowDatePicker.getValue().isBefore(LocalDate.now())) {
+            showAlert("Error", "Tanggal peminjaman tidak boleh kurang dari hari ini!", Alert.AlertType.ERROR);
+            return false;
+        }
+        
+        if (!returnDatePicker.getValue().isAfter(borrowDatePicker.getValue())) {
+            showAlert("Error", "Tanggal kembali harus setelah tanggal pinjam!", Alert.AlertType.ERROR);
             return false;
         }
         

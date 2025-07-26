@@ -1,37 +1,38 @@
 import java.io.*;
 import java.util.*;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 public class BorrowManager {
-    private static final String BORROW_FILE = "borrowing.csv";
-    private static final String BORROW_HEADER = "Borrow ID,Inventory ID,Inventory Name,Borrower Name,Borrower Type,Borrow Date,Return Date,Actual Return Date,Status,Notes";
+    private static final String CSV_FILE = "borrowing.csv";
+    private static final String CSV_HEADER = "BorrowID,InventoryID,InventoryName,BorrowerName,BorrowerType,BorrowerContact,BorrowDate,ReturnDate,ActualReturnDate,Status,Notes";
     
-    // Save borrowing data
     public static void saveBorrowData(ObservableList<BorrowRecord> data) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(BORROW_FILE))) {
-            writer.println(BORROW_HEADER);
+        try (PrintWriter writer = new PrintWriter(new FileWriter(CSV_FILE))) {
+            writer.println(CSV_HEADER);
             for (BorrowRecord record : data) {
                 writer.println(record.toCSV());
             }
-            System.out.println("Data peminjaman berhasil disimpan ke " + BORROW_FILE);
+            System.out.println("Data peminjaman berhasil disimpan ke " + CSV_FILE);
         } catch (IOException e) {
             System.err.println("Error saving borrow data: " + e.getMessage());
         }
     }
     
-    // Load borrowing data
     public static ObservableList<BorrowRecord> loadBorrowData() {
         ObservableList<BorrowRecord> data = FXCollections.observableArrayList();
-        File file = new File(BORROW_FILE);
+        File file = new File(CSV_FILE);
         
         if (!file.exists()) {
-            return data; // Return empty list if file doesn't exist
+            // Create sample data if file doesn't exist
+            createSampleBorrowData(data);
+            saveBorrowData(data);
+            return data;
         }
         
-        try (BufferedReader reader = new BufferedReader(new FileReader(BORROW_FILE))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(CSV_FILE))) {
             String line;
             boolean firstLine = true;
             
@@ -46,24 +47,34 @@ public class BorrowManager {
                     data.add(record);
                 }
             }
-            System.out.println("Data peminjaman berhasil dimuat dari " + BORROW_FILE);
+            System.out.println("Data peminjaman berhasil dimuat dari " + CSV_FILE);
         } catch (IOException e) {
             System.err.println("Error loading borrow data: " + e.getMessage());
+            createSampleBorrowData(data);
         }
         
         return data;
     }
     
-    // Generate new borrow ID
+    private static void createSampleBorrowData(ObservableList<BorrowRecord> data) {
+        data.addAll(Arrays.asList(
+            new BorrowRecord("BRW0001", "HW0003", "Laptop", "John Doe", "Mahasiswa", "john@email.com", 
+                "2024-02-20", "2024-02-27", "", "Dipinjam", "Untuk tugas akhir"),
+            new BorrowRecord("BRW0002", "ACC0001", "Keyboard", "Jane Smith", "Dosen", "jane@email.com", 
+                "2024-02-15", "2024-02-20", "2024-02-19", "Dikembalikan", "Dikembalikan tepat waktu"),
+            new BorrowRecord("BRW0003", "HW0005", "Proyektor", "Mike Johnson", "Staff", "mike@email.com", 
+                "2024-02-10", "2024-02-15", "", "Terlambat", "Belum dikembalikan, sudah lewat batas waktu")
+        ));
+    }
+    
     public static String generateNewBorrowId(ObservableList<BorrowRecord> data) {
         int maxId = 0;
-        String prefix = "BR";
         
         for (BorrowRecord record : data) {
             String id = record.getBorrowId();
-            if (id != null && id.startsWith(prefix)) {
+            if (id.startsWith("BRW")) {
                 try {
-                    int numId = Integer.parseInt(id.substring(prefix.length()));
+                    int numId = Integer.parseInt(id.substring(3));
                     maxId = Math.max(maxId, numId);
                 } catch (NumberFormatException e) {
                     // Ignore invalid IDs
@@ -71,38 +82,42 @@ public class BorrowManager {
             }
         }
         
-        return String.format("%s%04d", prefix, maxId + 1);
+        return String.format("BRW%04d", maxId + 1);
     }
     
-    // Get active borrowing for an inventory item
-    public static BorrowRecord getActiveBorrowingForItem(ObservableList<BorrowRecord> data, String inventoryId) {
-        return data.stream()
-            .filter(record -> inventoryId.equals(record.getInventoryId()) && "Dipinjam".equals(record.getStatus()))
-            .findFirst()
-            .orElse(null);
-    }
-    
-    // Check if inventory item is currently borrowed
     public static boolean isItemBorrowed(ObservableList<BorrowRecord> data, String inventoryId) {
-        return getActiveBorrowingForItem(data, inventoryId) != null;
+        return data.stream().anyMatch(record -> 
+            record.getInventoryId().equals(inventoryId) && 
+            ("Dipinjam".equals(record.getStatus()) || "Terlambat".equals(record.getStatus()))
+        );
     }
     
-    // Get overdue items
+    public static boolean returnItem(ObservableList<BorrowRecord> data, String borrowId, String returnNotes) {
+        for (BorrowRecord record : data) {
+            if (record.getBorrowId().equals(borrowId)) {
+                record.setActualReturnDate(LocalDate.now().toString());
+                record.setStatus("Dikembalikan");
+                record.setNotes(returnNotes);
+                return true;
+            }
+        }
+        return false;
+    }
+    
     public static List<BorrowRecord> getOverdueItems(ObservableList<BorrowRecord> data) {
-        List<BorrowRecord> overdueItems = new ArrayList<>();
         LocalDate today = LocalDate.now();
+        List<BorrowRecord> overdueItems = new ArrayList<>();
         
         for (BorrowRecord record : data) {
-            if ("Dipinjam".equals(record.getStatus()) && record.getReturnDate() != null) {
+            if ("Dipinjam".equals(record.getStatus())) {
                 try {
                     LocalDate returnDate = LocalDate.parse(record.getReturnDate());
                     if (today.isAfter(returnDate)) {
-                        // Update status to overdue
                         record.setStatus("Terlambat");
                         overdueItems.add(record);
                     }
                 } catch (Exception e) {
-                    // Ignore invalid dates
+                    // Skip records with invalid dates
                 }
             }
         }
@@ -110,22 +125,23 @@ public class BorrowManager {
         return overdueItems;
     }
     
-    // Return an item
-    public static boolean returnItem(ObservableList<BorrowRecord> data, String borrowId, String notes) {
-        BorrowRecord record = data.stream()
-            .filter(r -> borrowId.equals(r.getBorrowId()) && "Dipinjam".equals(r.getStatus()))
-            .findFirst()
-            .orElse(null);
-            
-        if (record != null) {
-            record.setActualReturnDate(LocalDate.now().toString());
-            record.setStatus("Dikembalikan");
-            if (notes != null && !notes.trim().isEmpty()) {
-                record.setNotes(notes);
-            }
-            return true;
+    public static List<BorrowRecord> getActiveBorrows(ObservableList<BorrowRecord> data) {
+        return data.stream()
+            .filter(record -> "Dipinjam".equals(record.getStatus()) || "Terlambat".equals(record.getStatus()))
+            .collect(java.util.stream.Collectors.toList());
+    }
+    
+    public static long getDaysOverdue(BorrowRecord record) {
+        if (!"Terlambat".equals(record.getStatus())) {
+            return 0;
         }
         
-        return false;
+        try {
+            LocalDate returnDate = LocalDate.parse(record.getReturnDate());
+            LocalDate today = LocalDate.now();
+            return ChronoUnit.DAYS.between(returnDate, today);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }
