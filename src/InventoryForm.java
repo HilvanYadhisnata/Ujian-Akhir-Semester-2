@@ -81,10 +81,6 @@ public class InventoryForm {
             new String[]{"Lab 1", "Lab 2", "Lab 3", "Server Room", "Gudang"});
         if (item != null) lokasiCombo.setValue(item.getLokasi());
         
-        ComboBox<String> statusCombo = createComboBox("Status", 
-            new String[]{"Tersedia", "Dipinjam", "Maintenance"});
-        if (item != null) statusCombo.setValue(item.getStatus());
-        
         DatePicker tanggalPicker = new DatePicker();
         tanggalPicker.setPromptText("Tanggal Masuk");
         tanggalPicker.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
@@ -112,7 +108,10 @@ public class InventoryForm {
         
         // Button actions
         saveButton.setOnAction(e -> {
-            if (validateForm(namaField, kategoriCombo, merkField, kondisiCombo, lokasiCombo, statusCombo, tanggalPicker)) {
+            if (validateForm(namaField, kategoriCombo, merkField, kondisiCombo, lokasiCombo, tanggalPicker)) {
+                // Set default status as "Tersedia" for new items, keep existing status for edit mode
+                String defaultStatus = isEditMode ? item.getStatus() : "Tersedia";
+                
                 result = new InventoryItem(
                     idField.getText().trim(), // Will be overridden in main app for new items
                     namaField.getText().trim(),
@@ -120,7 +119,7 @@ public class InventoryForm {
                     merkField.getText().trim(),
                     kondisiCombo.getValue(),
                     lokasiCombo.getValue(),
-                    statusCombo.getValue(),
+                    defaultStatus, // Use default status
                     tanggalPicker.getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                 );
                 dialog.close();
@@ -131,7 +130,7 @@ public class InventoryForm {
         
         buttonContainer.getChildren().addAll(saveButton, cancelButton);
         
-        // Add all components to form
+        // Add all components to form (removed status field)
         VBox idContainer = createFieldContainer("ID:", idField);
         if (!isEditMode) {
             idContainer.getChildren().add(idPreviewLabel);
@@ -144,14 +143,13 @@ public class InventoryForm {
             createFieldContainer("Merk:", merkField),
             createFieldContainer("Kondisi:", kondisiCombo),
             createFieldContainer("Lokasi:", lokasiCombo),
-            createFieldContainer("Status:", statusCombo),
             createFieldContainer("Tanggal Masuk:", tanggalPicker),
             buttonContainer
         );
         
         mainContainer.getChildren().addAll(headerLabel, formContainer);
         
-        Scene scene = new Scene(mainContainer, 450, 700);
+        Scene scene = new Scene(mainContainer, 450, 600); // Reduced height since status field is removed
         dialog.setScene(scene);
     }
     
@@ -181,9 +179,10 @@ public class InventoryForm {
         return container;
     }
     
+    // Modified validateForm method - removed statusCombo parameter
     private boolean validateForm(TextField namaField, ComboBox<String> kategoriCombo,
                                 TextField merkField, ComboBox<String> kondisiCombo, ComboBox<String> lokasiCombo,
-                                ComboBox<String> statusCombo, DatePicker tanggalPicker) {
+                                DatePicker tanggalPicker) {
         
         if (namaField.getText().trim().isEmpty()) {
             showAlert("Error", "Nama tidak boleh kosong!", Alert.AlertType.ERROR);
@@ -207,11 +206,6 @@ public class InventoryForm {
         
         if (lokasiCombo.getValue() == null) {
             showAlert("Error", "Lokasi harus dipilih!", Alert.AlertType.ERROR);
-            return false;
-        }
-        
-        if (statusCombo.getValue() == null) {
-            showAlert("Error", "Status harus dipilih!", Alert.AlertType.ERROR);
             return false;
         }
         

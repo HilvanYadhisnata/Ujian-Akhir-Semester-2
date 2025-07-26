@@ -10,6 +10,9 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.scene.effect.DropShadow;
+import javafx.print.*;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -20,11 +23,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+// Import untuk PDF generation
+import java.io.FileOutputStream;
+import java.awt.Desktop;
+
 public class ReportGenerator {
     private Stage dialog;
     private ObservableList<InventoryItem> inventoryData;
     private ObservableList<BorrowRecord> borrowData;
     private ObservableList<MaintenanceRecord> maintenanceData;
+    private String currentReportContent = "";
     
     public ReportGenerator(Stage parent, ObservableList<InventoryItem> inventoryData,
                           ObservableList<BorrowRecord> borrowData, ObservableList<MaintenanceRecord> maintenanceData) {
@@ -83,7 +91,7 @@ public class ReportGenerator {
         previewArea.setPromptText("Preview laporan akan ditampilkan di sini...");
         previewArea.setPrefHeight(200);
         previewArea.setEditable(false);
-        previewArea.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7;");
+        previewArea.setStyle("-fx-background-radius: 5; -fx-border-radius: 5; -fx-border-color: #BDC3C7; -fx-font-family: 'Courier New';");
         
         // Update preview when report type changes
         reportTypeCombo.setOnAction(e -> updatePreview(reportTypeCombo.getValue(), 
@@ -95,9 +103,9 @@ public class ReportGenerator {
         endDatePicker.setOnAction(e -> updatePreview(reportTypeCombo.getValue(), 
             startDatePicker.getValue(), endDatePicker.getValue(), previewArea));
         
-        // Buttons
-        HBox buttonContainer = new HBox(15);
-        buttonContainer.setStyle("-fx-alignment: center;");
+        // Main Buttons
+        HBox mainButtonContainer = new HBox(15);
+        mainButtonContainer.setStyle("-fx-alignment: center;");
         
         Button previewButton = new Button("🔍 Preview");
         previewButton.setPrefWidth(100);
@@ -105,38 +113,280 @@ public class ReportGenerator {
         previewButton.setOnAction(e -> updatePreview(reportTypeCombo.getValue(), 
             startDatePicker.getValue(), endDatePicker.getValue(), previewArea));
         
-        Button exportButton = new Button("💾 Export");
-        exportButton.setPrefWidth(100);
-        exportButton.setStyle("-fx-background-color: #27AE60; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
-        exportButton.setOnAction(e -> exportReport(reportTypeCombo.getValue(), 
+        // Print & Export buttons section
+        VBox actionContainer = new VBox(15);
+        actionContainer.setStyle("-fx-background-color: #F8F9FA; -fx-padding: 15; -fx-background-radius: 5;");
+        
+        Label actionLabel = new Label("Aksi Laporan");
+        actionLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        actionLabel.setTextFill(Color.web("#2C3E50"));
+        
+        // Print and Export buttons
+        HBox printExportContainer = new HBox(10);
+        printExportContainer.setStyle("-fx-alignment: center;");
+        
+        Button printButton = new Button("🖨️ Cetak");
+        printButton.setPrefWidth(120);
+        printButton.setStyle("-fx-background-color: #9B59B6; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+        printButton.setOnAction(e -> printReport(reportTypeCombo.getValue(), 
             startDatePicker.getValue(), endDatePicker.getValue()));
+        
+        Button exportTxtButton = new Button("📄 Export TXT");
+        exportTxtButton.setPrefWidth(120);
+        exportTxtButton.setStyle("-fx-background-color: #27AE60; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+        exportTxtButton.setOnAction(e -> exportToTXT(reportTypeCombo.getValue(), 
+            startDatePicker.getValue(), endDatePicker.getValue()));
+        
+        Button exportPdfButton = new Button("📄 Export PDF");
+        exportPdfButton.setPrefWidth(120);
+        exportPdfButton.setStyle("-fx-background-color: #E74C3C; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+        exportPdfButton.setOnAction(e -> exportToPDF(reportTypeCombo.getValue(), 
+            startDatePicker.getValue(), endDatePicker.getValue()));
+        
+        printExportContainer.getChildren().addAll(printButton, exportTxtButton, exportPdfButton);
+        
+        actionContainer.getChildren().addAll(actionLabel, printExportContainer);
+        
+        // Close button
+        HBox closeContainer = new HBox();
+        closeContainer.setStyle("-fx-alignment: center;");
         
         Button closeButton = new Button("Tutup");
         closeButton.setPrefWidth(100);
         closeButton.setStyle("-fx-background-color: #95A5A6; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
         closeButton.setOnAction(e -> dialog.close());
         
-        buttonContainer.getChildren().addAll(previewButton, exportButton, closeButton);
+        closeContainer.getChildren().add(closeButton);
+        
+        mainButtonContainer.getChildren().add(previewButton);
         
         formContainer.getChildren().addAll(
             createFieldContainer("Jenis Laporan:", reportTypeCombo),
             createFieldContainer("Tanggal Mulai:", startDatePicker),
             createFieldContainer("Tanggal Akhir:", endDatePicker),
             createFieldContainer("Preview:", previewArea),
-            buttonContainer
+            mainButtonContainer,
+            new Separator(),
+            actionContainer,
+            closeContainer
         );
         
         mainContainer.getChildren().addAll(headerLabel, formContainer);
         
-        Scene scene = new Scene(mainContainer, 600, 650);
+        Scene scene = new Scene(mainContainer, 650, 750);
         dialog.setScene(scene);
     }
     
     private void updatePreview(String reportType, LocalDate startDate, LocalDate endDate, TextArea previewArea) {
         if (reportType == null) return;
         
-        String preview = generateReportContent(reportType, startDate, endDate);
-        previewArea.setText(preview.length() > 1000 ? preview.substring(0, 1000) + "\n\n... (Preview terbatas)" : preview);
+        currentReportContent = generateReportContent(reportType, startDate, endDate);
+        String preview = currentReportContent.length() > 1000 ? 
+            currentReportContent.substring(0, 1000) + "\n\n... (Preview terbatas)" : currentReportContent;
+        previewArea.setText(preview);
+    }
+    
+    // Print Report Method
+    private void printReport(String reportType, LocalDate startDate, LocalDate endDate) {
+        if (reportType == null) {
+            showAlert("Error", "Pilih jenis laporan terlebih dahulu!", Alert.AlertType.ERROR);
+            return;
+        }
+        
+        try {
+            // Generate report content
+            String content = generateReportContent(reportType, startDate, endDate);
+            
+            // Create printer job
+            PrinterJob printerJob = PrinterJob.createPrinterJob();
+            if (printerJob == null) {
+                showAlert("Error", "Tidak dapat mengakses printer!", Alert.AlertType.ERROR);
+                return;
+            }
+            
+            // Show print dialog
+            if (printerJob.showPrintDialog(dialog)) {
+                // Create TextFlow for printing
+                TextFlow textFlow = new TextFlow();
+                
+                // Split content into lines and create Text nodes
+                String[] lines = content.split("\n");
+                for (String line : lines) {
+                    Text text = new Text(line + "\n");
+                    text.setFont(Font.font("Courier New", 10));
+                    textFlow.getChildren().add(text);
+                }
+                
+                // Set page layout
+                Printer printer = printerJob.getPrinter();
+                PageLayout pageLayout = printer.createPageLayout(Paper.A4, 
+                    PageOrientation.PORTRAIT, Printer.MarginType.DEFAULT);
+                
+                textFlow.setPrefWidth(pageLayout.getPrintableWidth());
+                textFlow.autosize();
+                
+                // Print the content
+                boolean success = printerJob.printPage(pageLayout, textFlow);
+                
+                if (success) {
+                    printerJob.endJob();
+                    showAlert("Sukses", "Laporan berhasil dicetak!", Alert.AlertType.INFORMATION);
+                } else {
+                    showAlert("Error", "Gagal mencetak laporan!", Alert.AlertType.ERROR);
+                }
+            }
+        } catch (Exception e) {
+            showAlert("Error", "Error saat mencetak: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+    
+    // Export to TXT Method
+    private void exportToTXT(String reportType, LocalDate startDate, LocalDate endDate) {
+        if (reportType == null) {
+            showAlert("Error", "Pilih jenis laporan terlebih dahulu!", Alert.AlertType.ERROR);
+            return;
+        }
+        
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Simpan Laporan sebagai TXT");
+        fileChooser.getExtensionFilters().add(
+            new FileChooser.ExtensionFilter("Text Files", "*.txt")
+        );
+        
+        String filename = reportType.replace(" ", "_") + "_" + 
+            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".txt";
+        fileChooser.setInitialFileName(filename);
+        
+        File file = fileChooser.showSaveDialog(dialog);
+        if (file != null) {
+            try (FileWriter writer = new FileWriter(file)) {
+                writer.write(generateReportContent(reportType, startDate, endDate));
+                
+                // Ask if user wants to open the file
+                Alert openAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                openAlert.setTitle("Export Berhasil");
+                openAlert.setHeaderText("Laporan berhasil disimpan!");
+                openAlert.setContentText("File disimpan di: " + file.getAbsolutePath() + 
+                    "\n\nApakah Anda ingin membuka file sekarang?");
+                
+                ButtonType openButton = new ButtonType("Buka File");
+                ButtonType closeButton = new ButtonType("Tutup", ButtonBar.ButtonData.CANCEL_CLOSE);
+                openAlert.getButtonTypes().setAll(openButton, closeButton);
+                
+                openAlert.showAndWait().ifPresent(response -> {
+                    if (response == openButton) {
+                        openFile(file);
+                    }
+                });
+                
+            } catch (IOException e) {
+                showAlert("Error", "Gagal menyimpan laporan: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+    
+    // Export to PDF Method (Simple HTML to PDF approach)
+    private void exportToPDF(String reportType, LocalDate startDate, LocalDate endDate) {
+        if (reportType == null) {
+            showAlert("Error", "Pilih jenis laporan terlebih dahulu!", Alert.AlertType.ERROR);
+            return;
+        }
+        
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Simpan Laporan sebagai HTML (untuk PDF)");
+        fileChooser.getExtensionFilters().add(
+            new FileChooser.ExtensionFilter("HTML Files", "*.html")
+        );
+        
+        String filename = reportType.replace(" ", "_") + "_" + 
+            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".html";
+        fileChooser.setInitialFileName(filename);
+        
+        File file = fileChooser.showSaveDialog(dialog);
+        if (file != null) {
+            try (FileWriter writer = new FileWriter(file)) {
+                // Generate HTML content
+                String htmlContent = generateHTMLReport(reportType, startDate, endDate);
+                writer.write(htmlContent);
+                
+                // Show success message with instructions
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Export Berhasil");
+                successAlert.setHeaderText("Laporan HTML berhasil dibuat!");
+                successAlert.setContentText("File disimpan di: " + file.getAbsolutePath() + 
+                    "\n\nUntuk mengkonversi ke PDF:\n" +
+                    "1. Buka file HTML di browser\n" +
+                    "2. Tekan Ctrl+P (Print)\n" +
+                    "3. Pilih 'Save as PDF' sebagai destination\n" +
+                    "4. Klik Save\n\n" +
+                    "Apakah Anda ingin membuka file HTML sekarang?");
+                
+                ButtonType openButton = new ButtonType("Buka HTML");
+                ButtonType closeButton = new ButtonType("Tutup", ButtonBar.ButtonData.CANCEL_CLOSE);
+                successAlert.getButtonTypes().setAll(openButton, closeButton);
+                
+                successAlert.showAndWait().ifPresent(response -> {
+                    if (response == openButton) {
+                        openFile(file);
+                    }
+                });
+                
+            } catch (IOException e) {
+                showAlert("Error", "Gagal menyimpan laporan: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+    
+    // Generate HTML Report for PDF export
+    private String generateHTMLReport(String reportType, LocalDate startDate, LocalDate endDate) {
+        String textContent = generateReportContent(reportType, startDate, endDate);
+        
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html>\n");
+        html.append("<html>\n<head>\n");
+        html.append("<meta charset=\"UTF-8\">\n");
+        html.append("<title>").append(reportType).append("</title>\n");
+        html.append("<style>\n");
+        html.append("body { font-family: 'Courier New', monospace; margin: 2cm; line-height: 1.4; }\n");
+        html.append("h1 { color: #2C3E50; text-align: center; border-bottom: 2px solid #3498DB; padding-bottom: 10px; }\n");
+        html.append("h2 { color: #34495E; margin-top: 25px; }\n");
+        html.append(".header { text-align: center; margin-bottom: 30px; }\n");
+        html.append(".content { white-space: pre-line; }\n");
+        html.append(".footer { margin-top: 50px; text-align: center; color: #7F8C8D; font-size: 12px; }\n");
+        html.append("@media print { body { margin: 1cm; } }\n");
+        html.append("</style>\n");
+        html.append("</head>\n<body>\n");
+        
+        html.append("<div class=\"header\">\n");
+        html.append("<h1>LAB INVENTORY SYSTEM</h1>\n");
+        html.append("<h2>").append(reportType).append("</h2>\n");
+        html.append("</div>\n");
+        
+        html.append("<div class=\"content\">\n");
+        html.append(textContent.replace("\n", "<br>\n"));
+        html.append("</div>\n");
+        
+        html.append("<div class=\"footer\">\n");
+        html.append("<p>Generated by Lab Inventory System - ").append(LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMMM yyyy"))).append("</p>\n");
+        html.append("</div>\n");
+        
+        html.append("</body>\n</html>");
+        
+        return html.toString();
+    }
+    
+    // Helper method to open file
+    private void openFile(File file) {
+        try {
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(file);
+            } else {
+                showAlert("Info", "File berhasil disimpan di: " + file.getAbsolutePath(), Alert.AlertType.INFORMATION);
+            }
+        } catch (Exception e) {
+            showAlert("Info", "File berhasil disimpan di: " + file.getAbsolutePath() + 
+                "\nTidak dapat membuka file secara otomatis.", Alert.AlertType.INFORMATION);
+        }
     }
     
     private String generateReportContent(String reportType, LocalDate startDate, LocalDate endDate) {
@@ -325,33 +575,6 @@ public class ReportGenerator {
             double totalCost = MaintenanceManager.getTotalMaintenanceCost(periodRecords);
             content.append("  Selesai (Periode): ").append(periodRecords.size()).append("\n");
             content.append("  Biaya (Periode): Rp ").append(String.format("%,.0f", totalCost)).append("\n");
-        }
-    }
-    
-    private void exportReport(String reportType, LocalDate startDate, LocalDate endDate) {
-        if (reportType == null) {
-            showAlert("Error", "Pilih jenis laporan terlebih dahulu!", Alert.AlertType.ERROR);
-            return;
-        }
-        
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Simpan Laporan");
-        fileChooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("Text Files", "*.txt")
-        );
-        
-        String filename = reportType.replace(" ", "_") + "_" + 
-            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".txt";
-        fileChooser.setInitialFileName(filename);
-        
-        File file = fileChooser.showSaveDialog(dialog);
-        if (file != null) {
-            try (FileWriter writer = new FileWriter(file)) {
-                writer.write(generateReportContent(reportType, startDate, endDate));
-                showAlert("Sukses", "Laporan berhasil disimpan ke: " + file.getAbsolutePath(), Alert.AlertType.INFORMATION);
-            } catch (IOException e) {
-                showAlert("Error", "Gagal menyimpan laporan: " + e.getMessage(), Alert.AlertType.ERROR);
-            }
         }
     }
     

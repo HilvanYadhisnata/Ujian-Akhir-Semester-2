@@ -175,10 +175,6 @@ public class Main extends Application {
         loginButton.setPrefHeight(40);
         loginButton.setStyle("-fx-background-color: #3498DB; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
         
-        Label infoLabel = new Label("Admin: admin/admin123 | Petugas: petugas/petugas123");
-        infoLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 10));
-        infoLabel.setTextFill(Color.web("#95A5A6"));
-        
         // Login button action
         loginButton.setOnAction(e -> {
             String username = usernameField.getText().trim();
@@ -194,7 +190,7 @@ public class Main extends Application {
         // Enter key support
         passwordField.setOnAction(e -> loginButton.fire());
         
-        formBox.getChildren().addAll(loginLabel, usernameField, passwordField, loginButton, infoLabel);
+        formBox.getChildren().addAll(loginLabel, usernameField, passwordField, loginButton);
         loginContainer.getChildren().addAll(titleLabel, subtitleLabel, formBox);
         
         // Background gradient
@@ -706,200 +702,239 @@ public class Main extends Application {
         displayArea.getChildren().addAll(titleLabel, statsLabel, new Separator(), reportTable);
     }
     
-    private void showBorrowingReport(VBox displayArea) {
-        displayArea.getChildren().clear();
-        
-        Label titleLabel = new Label("📋 Laporan Peminjaman");
-        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
-        titleLabel.setTextFill(Color.web("#2C3E50"));
-        
-        // Summary statistics
-        long totalBorrows = borrowData.size();
-        long activeBorrows = borrowData.stream().filter(b -> "Dipinjam".equals(b.getStatus())).count();
-        long overdueBorrows = borrowData.stream().filter(b -> "Terlambat".equals(b.getStatus())).count();
-        long returnedBorrows = borrowData.stream().filter(b -> "Dikembalikan".equals(b.getStatus())).count();
-        
-        Label statsLabel = new Label(String.format(
-            "Total Peminjaman: %d | Aktif: %d | Terlambat: %d | Dikembalikan: %d",
-            totalBorrows, activeBorrows, overdueBorrows, returnedBorrows
-        ));
-        statsLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        statsLabel.setTextFill(Color.web("#34495E"));
-        
-        // Table with borrowing data
-        TableView<BorrowRecord> reportTable = new TableView<>();
-        reportTable.setItems(borrowData);
-        reportTable.setPrefHeight(400);
-        
-        TableColumn<BorrowRecord, String> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("borrowId"));
-        idCol.setPrefWidth(80);
-        
-        TableColumn<BorrowRecord, String> itemCol = new TableColumn<>("Alat");
-        itemCol.setCellValueFactory(new PropertyValueFactory<>("inventoryName"));
-        itemCol.setPrefWidth(200);
-        
-        TableColumn<BorrowRecord, String> borrowerCol = new TableColumn<>("Peminjam");
-        borrowerCol.setCellValueFactory(new PropertyValueFactory<>("borrowerName"));
-        borrowerCol.setPrefWidth(150);
-        
-        TableColumn<BorrowRecord, String> typeCol = new TableColumn<>("Tipe");
-        typeCol.setCellValueFactory(new PropertyValueFactory<>("borrowerType"));
-        typeCol.setPrefWidth(100);
-        
-        TableColumn<BorrowRecord, String> borrowDateCol = new TableColumn<>("Tgl Pinjam");
-        borrowDateCol.setCellValueFactory(new PropertyValueFactory<>("borrowDate"));
-        borrowDateCol.setPrefWidth(100);
-        
-        TableColumn<BorrowRecord, String> returnDateCol = new TableColumn<>("Tgl Kembali");
-        returnDateCol.setCellValueFactory(new PropertyValueFactory<>("returnDate"));
-        returnDateCol.setPrefWidth(100);
-        
-        TableColumn<BorrowRecord, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
-        statusCol.setPrefWidth(100);
-        
-        reportTable.getColumns().addAll(idCol, itemCol, borrowerCol, typeCol, borrowDateCol, returnDateCol, statusCol);
-        
-        displayArea.getChildren().addAll(titleLabel, statsLabel, new Separator(), reportTable);
+private void showBorrowingReport(VBox displayArea) {
+    displayArea.getChildren().clear();
+    
+    // Header with enhanced report button
+    HBox headerBox = new HBox(20);
+    headerBox.setAlignment(Pos.CENTER_LEFT);
+    
+    Label titleLabel = new Label("📋 Laporan Peminjaman");
+    titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+    titleLabel.setTextFill(Color.web("#2C3E50"));
+    
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    
+    Button printReportButton = new Button("🖨️ Cetak & Export");
+    printReportButton.setStyle("-fx-background-color: #E67E22; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+    printReportButton.setOnAction(e -> openBorrowingReportGenerator());
+    
+    headerBox.getChildren().addAll(titleLabel, spacer, printReportButton);
+    
+    // Summary statistics
+    long totalBorrows = borrowData.size();
+    long activeBorrows = borrowData.stream().filter(b -> "Dipinjam".equals(b.getStatus())).count();
+    long overdueBorrows = borrowData.stream().filter(b -> "Terlambat".equals(b.getStatus())).count();
+    long returnedBorrows = borrowData.stream().filter(b -> "Dikembalikan".equals(b.getStatus())).count();
+    
+    Label statsLabel = new Label(String.format(
+        "Total Peminjaman: %d | Aktif: %d | Terlambat: %d | Dikembalikan: %d",
+        totalBorrows, activeBorrows, overdueBorrows, returnedBorrows
+    ));
+    statsLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+    statsLabel.setTextFill(Color.web("#34495E"));
+    
+    // Table with borrowing data
+    TableView<BorrowRecord> reportTable = new TableView<>();
+    reportTable.setItems(borrowData);
+    reportTable.setPrefHeight(400);
+    
+    TableColumn<BorrowRecord, String> idCol = new TableColumn<>("ID");
+    idCol.setCellValueFactory(new PropertyValueFactory<>("borrowId"));
+    idCol.setPrefWidth(80);
+    
+    TableColumn<BorrowRecord, String> itemCol = new TableColumn<>("Alat");
+    itemCol.setCellValueFactory(new PropertyValueFactory<>("inventoryName"));
+    itemCol.setPrefWidth(200);
+    
+    TableColumn<BorrowRecord, String> borrowerCol = new TableColumn<>("Peminjam");
+    borrowerCol.setCellValueFactory(new PropertyValueFactory<>("borrowerName"));
+    borrowerCol.setPrefWidth(150);
+    
+    TableColumn<BorrowRecord, String> typeCol = new TableColumn<>("Tipe");
+    typeCol.setCellValueFactory(new PropertyValueFactory<>("borrowerType"));
+    typeCol.setPrefWidth(100);
+    
+    TableColumn<BorrowRecord, String> borrowDateCol = new TableColumn<>("Tgl Pinjam");
+    borrowDateCol.setCellValueFactory(new PropertyValueFactory<>("borrowDate"));
+    borrowDateCol.setPrefWidth(100);
+    
+    TableColumn<BorrowRecord, String> returnDateCol = new TableColumn<>("Tgl Kembali");
+    returnDateCol.setCellValueFactory(new PropertyValueFactory<>("returnDate"));
+    returnDateCol.setPrefWidth(100);
+    
+    TableColumn<BorrowRecord, String> statusCol = new TableColumn<>("Status");
+    statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+    statusCol.setPrefWidth(100);
+    
+    reportTable.getColumns().addAll(idCol, itemCol, borrowerCol, typeCol, borrowDateCol, returnDateCol, statusCol);
+    
+    displayArea.getChildren().addAll(headerBox, statsLabel, new Separator(), reportTable);
+}
+    
+   private void showMaintenanceReport(VBox displayArea) {
+    displayArea.getChildren().clear();
+    
+    // Header with enhanced report button
+    HBox headerBox = new HBox(20);
+    headerBox.setAlignment(Pos.CENTER_LEFT);
+    
+    Label titleLabel = new Label("🔧 Laporan Maintenance");
+    titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+    titleLabel.setTextFill(Color.web("#2C3E50"));
+    
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    
+    Button printReportButton = new Button("🖨️ Cetak & Export");
+    printReportButton.setStyle("-fx-background-color: #E67E22; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+    printReportButton.setOnAction(e -> openMaintenanceReportGenerator());
+    
+    headerBox.getChildren().addAll(titleLabel, spacer, printReportButton);
+    
+    // Summary statistics
+    long totalMaintenance = maintenanceData.size();
+    long pendingMaintenance = maintenanceData.stream().filter(m -> "Menunggu Penanganan".equals(m.getStatus())).count();
+    long inProgressMaintenance = maintenanceData.stream().filter(m -> "Dalam Proses".equals(m.getStatus())).count();
+    long completedMaintenance = maintenanceData.stream().filter(m -> "Selesai".equals(m.getStatus())).count();
+    
+    Label statsLabel = new Label(String.format(
+        "Total Maintenance: %d | Pending: %d | Dalam Proses: %d | Selesai: %d",
+        totalMaintenance, pendingMaintenance, inProgressMaintenance, completedMaintenance
+    ));
+    statsLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+    statsLabel.setTextFill(Color.web("#34495E"));
+    
+    // Table with maintenance data
+    TableView<MaintenanceRecord> reportTable = new TableView<>();
+    reportTable.setItems(maintenanceData);
+    reportTable.setPrefHeight(400);
+    
+    TableColumn<MaintenanceRecord, String> idCol = new TableColumn<>("ID");
+    idCol.setCellValueFactory(new PropertyValueFactory<>("maintenanceId"));
+    idCol.setPrefWidth(80);
+    
+    TableColumn<MaintenanceRecord, String> itemCol = new TableColumn<>("Alat");
+    itemCol.setCellValueFactory(new PropertyValueFactory<>("inventoryName"));
+    itemCol.setPrefWidth(180);
+    
+    TableColumn<MaintenanceRecord, String> typeCol = new TableColumn<>("Jenis");
+    typeCol.setCellValueFactory(new PropertyValueFactory<>("issueType"));
+    typeCol.setPrefWidth(120);
+    
+    TableColumn<MaintenanceRecord, String> priorityCol = new TableColumn<>("Prioritas");
+    priorityCol.setCellValueFactory(new PropertyValueFactory<>("priority"));
+    priorityCol.setPrefWidth(80);
+    
+    TableColumn<MaintenanceRecord, String> statusCol = new TableColumn<>("Status");
+    statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+    statusCol.setPrefWidth(120);
+    
+    TableColumn<MaintenanceRecord, String> reporterCol = new TableColumn<>("Pelapor");
+    reporterCol.setCellValueFactory(new PropertyValueFactory<>("reportedBy"));
+    reporterCol.setPrefWidth(100);
+    
+    TableColumn<MaintenanceRecord, String> dateCol = new TableColumn<>("Tanggal");
+    dateCol.setCellValueFactory(new PropertyValueFactory<>("reportedDate"));
+    dateCol.setPrefWidth(100);
+    
+    reportTable.getColumns().addAll(idCol, itemCol, typeCol, priorityCol, statusCol, reporterCol, dateCol);
+    
+    displayArea.getChildren().addAll(headerBox, statsLabel, new Separator(), reportTable);
+}
+    
+   private void showSummaryReport(VBox displayArea) {
+    displayArea.getChildren().clear();
+    
+    Label titleLabel = new Label("📊 Laporan Ringkasan");
+    titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+    titleLabel.setTextFill(Color.web("#2C3E50"));
+    
+    // CREATE ENHANCED REPORT BUTTON
+    HBox headerBox = new HBox(20);
+    headerBox.setAlignment(Pos.CENTER_LEFT);
+    
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    
+    Button enhancedReportButton = new Button("📄 Generator Laporan Lengkap");
+    enhancedReportButton.setStyle("-fx-background-color: #E67E22; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5;");
+    enhancedReportButton.setOnAction(e -> openEnhancedReportGenerator());
+    
+    headerBox.getChildren().addAll(titleLabel, spacer, enhancedReportButton);
+    
+    // Create summary cards
+    HBox summaryCards = new HBox(20);
+    summaryCards.setAlignment(Pos.CENTER);
+    
+    // Inventory summary
+    long totalItems = inventoryData.size();
+    long availableItems = inventoryData.stream().filter(item -> "Tersedia".equals(item.getStatus())).count();
+    long borrowedItems = inventoryData.stream().filter(item -> "Dipinjam".equals(item.getStatus())).count();
+    long maintenanceItems = inventoryData.stream().filter(item -> "Maintenance".equals(item.getStatus())).count();
+    
+    VBox inventoryCard = createSummaryCard("Inventaris", 
+        String.format("Total: %d\nTersedia: %d\nDipinjam: %d\nMaintenance: %d", 
+            totalItems, availableItems, borrowedItems, maintenanceItems), "#3498DB");
+    
+    // Borrowing summary
+    long activeBorrows = borrowData.stream().filter(b -> "Dipinjam".equals(b.getStatus())).count();
+    long overdueBorrows = borrowData.stream().filter(b -> "Terlambat".equals(b.getStatus())).count();
+    
+    VBox borrowCard = createSummaryCard("Peminjaman", 
+        String.format("Aktif: %d\nTerlambat: %d\nTotal: %d", 
+            activeBorrows, overdueBorrows, borrowData.size()), "#27AE60");
+    
+    // Maintenance summary
+    long pendingMaintenance = maintenanceData.stream().filter(m -> "Menunggu Penanganan".equals(m.getStatus())).count();
+    long inProgressMaintenance = maintenanceData.stream().filter(m -> "Dalam Proses".equals(m.getStatus())).count();
+    
+    VBox maintenanceCard = createSummaryCard("Maintenance", 
+        String.format("Pending: %d\nProses: %d\nTotal: %d", 
+            pendingMaintenance, inProgressMaintenance, maintenanceData.size()), "#E74C3C");
+    
+    summaryCards.getChildren().addAll(inventoryCard, borrowCard, maintenanceCard);
+    
+    // Recent activities
+    Label recentLabel = new Label("Aktivitas Terbaru");
+    recentLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+    recentLabel.setTextFill(Color.web("#2C3E50"));
+    
+    VBox recentActivities = new VBox(5);
+    recentActivities.setStyle("-fx-background-color: #F8F9FA; -fx-padding: 15; -fx-background-radius: 5;");
+    
+    // Show recent borrows
+    borrowData.stream()
+        .filter(b -> "Dipinjam".equals(b.getStatus()) || "Terlambat".equals(b.getStatus()))
+        .limit(5)
+        .forEach(b -> {
+            Label activityLabel = new Label("📋 " + b.getInventoryName() + " dipinjam oleh " + b.getBorrowerName());
+            activityLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+            recentActivities.getChildren().add(activityLabel);
+        });
+    
+    // Show recent maintenance
+    maintenanceData.stream()
+        .filter(m -> !"Selesai".equals(m.getStatus()))
+        .limit(5)
+        .forEach(m -> {
+            Label activityLabel = new Label("🔧 " + m.getInventoryName() + " - " + m.getIssueType());
+            activityLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+            recentActivities.getChildren().add(activityLabel);
+        });
+    
+    if (recentActivities.getChildren().isEmpty()) {
+        Label noActivityLabel = new Label("Tidak ada aktivitas terbaru");
+        noActivityLabel.setFont(Font.font("Arial", javafx.scene.text.FontPosture.ITALIC, 12));
+        noActivityLabel.setTextFill(Color.web("#7F8C8D"));
+        recentActivities.getChildren().add(noActivityLabel);
     }
     
-    private void showMaintenanceReport(VBox displayArea) {
-        displayArea.getChildren().clear();
-        
-        Label titleLabel = new Label("🔧 Laporan Maintenance");
-        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
-        titleLabel.setTextFill(Color.web("#2C3E50"));
-        
-        // Summary statistics
-        long totalMaintenance = maintenanceData.size();
-        long pendingMaintenance = maintenanceData.stream().filter(m -> "Menunggu Penanganan".equals(m.getStatus())).count();
-        long inProgressMaintenance = maintenanceData.stream().filter(m -> "Dalam Proses".equals(m.getStatus())).count();
-        long completedMaintenance = maintenanceData.stream().filter(m -> "Selesai".equals(m.getStatus())).count();
-        
-        Label statsLabel = new Label(String.format(
-            "Total Maintenance: %d | Pending: %d | Dalam Proses: %d | Selesai: %d",
-            totalMaintenance, pendingMaintenance, inProgressMaintenance, completedMaintenance
-        ));
-        statsLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        statsLabel.setTextFill(Color.web("#34495E"));
-        
-        // Table with maintenance data
-        TableView<MaintenanceRecord> reportTable = new TableView<>();
-        reportTable.setItems(maintenanceData);
-        reportTable.setPrefHeight(400);
-        
-        TableColumn<MaintenanceRecord, String> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("maintenanceId"));
-        idCol.setPrefWidth(80);
-        
-        TableColumn<MaintenanceRecord, String> itemCol = new TableColumn<>("Alat");
-        itemCol.setCellValueFactory(new PropertyValueFactory<>("inventoryName"));
-        itemCol.setPrefWidth(180);
-        
-        TableColumn<MaintenanceRecord, String> typeCol = new TableColumn<>("Jenis");
-        typeCol.setCellValueFactory(new PropertyValueFactory<>("issueType"));
-        typeCol.setPrefWidth(120);
-        
-        TableColumn<MaintenanceRecord, String> priorityCol = new TableColumn<>("Prioritas");
-        priorityCol.setCellValueFactory(new PropertyValueFactory<>("priority"));
-        priorityCol.setPrefWidth(80);
-        
-        TableColumn<MaintenanceRecord, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
-        statusCol.setPrefWidth(120);
-        
-        TableColumn<MaintenanceRecord, String> reporterCol = new TableColumn<>("Pelapor");
-        reporterCol.setCellValueFactory(new PropertyValueFactory<>("reportedBy"));
-        reporterCol.setPrefWidth(100);
-        
-        TableColumn<MaintenanceRecord, String> dateCol = new TableColumn<>("Tanggal");
-        dateCol.setCellValueFactory(new PropertyValueFactory<>("reportedDate"));
-        dateCol.setPrefWidth(100);
-        
-        reportTable.getColumns().addAll(idCol, itemCol, typeCol, priorityCol, statusCol, reporterCol, dateCol);
-        
-        displayArea.getChildren().addAll(titleLabel, statsLabel, new Separator(), reportTable);
-    }
-    
-    private void showSummaryReport(VBox displayArea) {
-        displayArea.getChildren().clear();
-        
-        Label titleLabel = new Label("📊 Laporan Ringkasan");
-        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
-        titleLabel.setTextFill(Color.web("#2C3E50"));
-        
-        // Create summary cards
-        HBox summaryCards = new HBox(20);
-        summaryCards.setAlignment(Pos.CENTER);
-        
-        // Inventory summary
-        long totalItems = inventoryData.size();
-        long availableItems = inventoryData.stream().filter(item -> "Tersedia".equals(item.getStatus())).count();
-        long borrowedItems = inventoryData.stream().filter(item -> "Dipinjam".equals(item.getStatus())).count();
-        long maintenanceItems = inventoryData.stream().filter(item -> "Maintenance".equals(item.getStatus())).count();
-        
-        VBox inventoryCard = createSummaryCard("Inventaris", 
-            String.format("Total: %d\nTersedia: %d\nDipinjam: %d\nMaintenance: %d", 
-                totalItems, availableItems, borrowedItems, maintenanceItems), "#3498DB");
-        
-        // Borrowing summary
-        long activeBorrows = borrowData.stream().filter(b -> "Dipinjam".equals(b.getStatus())).count();
-        long overdueBorrows = borrowData.stream().filter(b -> "Terlambat".equals(b.getStatus())).count();
-        
-        VBox borrowCard = createSummaryCard("Peminjaman", 
-            String.format("Aktif: %d\nTerlambat: %d\nTotal: %d", 
-                activeBorrows, overdueBorrows, borrowData.size()), "#27AE60");
-        
-        // Maintenance summary
-        long pendingMaintenance = maintenanceData.stream().filter(m -> "Menunggu Penanganan".equals(m.getStatus())).count();
-        long inProgressMaintenance = maintenanceData.stream().filter(m -> "Dalam Proses".equals(m.getStatus())).count();
-        
-        VBox maintenanceCard = createSummaryCard("Maintenance", 
-            String.format("Pending: %d\nProses: %d\nTotal: %d", 
-                pendingMaintenance, inProgressMaintenance, maintenanceData.size()), "#E74C3C");
-        
-        summaryCards.getChildren().addAll(inventoryCard, borrowCard, maintenanceCard);
-        
-        // Recent activities
-        Label recentLabel = new Label("Aktivitas Terbaru");
-        recentLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-        recentLabel.setTextFill(Color.web("#2C3E50"));
-        
-        VBox recentActivities = new VBox(5);
-        recentActivities.setStyle("-fx-background-color: #F8F9FA; -fx-padding: 15; -fx-background-radius: 5;");
-        
-        // Show recent borrows
-        borrowData.stream()
-            .filter(b -> "Dipinjam".equals(b.getStatus()) || "Terlambat".equals(b.getStatus()))
-            .limit(5)
-            .forEach(b -> {
-                Label activityLabel = new Label("📋 " + b.getInventoryName() + " dipinjam oleh " + b.getBorrowerName());
-                activityLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
-                recentActivities.getChildren().add(activityLabel);
-            });
-        
-        // Show recent maintenance
-        maintenanceData.stream()
-            .filter(m -> !"Selesai".equals(m.getStatus()))
-            .limit(5)
-            .forEach(m -> {
-                Label activityLabel = new Label("🔧 " + m.getInventoryName() + " - " + m.getIssueType());
-                activityLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
-                recentActivities.getChildren().add(activityLabel);
-            });
-        
-        if (recentActivities.getChildren().isEmpty()) {
-            Label noActivityLabel = new Label("Tidak ada aktivitas terbaru");
-            noActivityLabel.setFont(Font.font("Arial", javafx.scene.text.FontPosture.ITALIC, 12));
-            noActivityLabel.setTextFill(Color.web("#7F8C8D"));
-            recentActivities.getChildren().add(noActivityLabel);
-        }
-        
-        displayArea.getChildren().addAll(titleLabel, new Separator(), summaryCards, new Separator(), recentLabel, recentActivities);
-    }
-    
-    private VBox createSummaryCard(String title, String content, String color) {
+    displayArea.getChildren().addAll(headerBox, new Separator(), summaryCards, new Separator(), recentLabel, recentActivities);
+}
+
+private VBox createSummaryCard(String title, String content, String color) {
         VBox card = new VBox(10);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(20));
@@ -1584,7 +1619,7 @@ public class Main extends Application {
     MaintenanceRecord updatedRecord = form.showAndWait();
     
     if (updatedRecord != null) {
-        // PERBAIKAN: Update record yang ada dengan data baru
+        // Update record yang ada dengan data baru
         if (MaintenanceManager.updateMaintenanceRecord(maintenanceData, updatedRecord)) {
             // Update inventory status based on maintenance status
             InventoryItem item = inventoryData.stream()
@@ -1746,6 +1781,42 @@ public class Main extends Application {
         alert.setContentText(message);
         alert.showAndWait();
     }
+
+    private void openEnhancedReportGenerator() {
+        try {
+            ReportGenerator reportGenerator = new ReportGenerator(primaryStage, inventoryData, borrowData, maintenanceData);
+            reportGenerator.showAndWait();
+        } catch (Exception e) {
+            showAlert("Error", "Gagal membuka generator laporan: " + e.getMessage(), Alert.AlertType.ERROR);
+        }
+    }
+
+    private void openInventoryReportGenerator() {
+    try {
+        ReportGenerator reportGenerator = new ReportGenerator(primaryStage, inventoryData, borrowData, maintenanceData);
+        reportGenerator.showAndWait();
+    } catch (Exception e) {
+        showAlert("Error", "Gagal membuka generator laporan: " + e.getMessage(), Alert.AlertType.ERROR);
+    }
+}
+
+private void openBorrowingReportGenerator() {
+    try {
+        ReportGenerator reportGenerator = new ReportGenerator(primaryStage, inventoryData, borrowData, maintenanceData);
+        reportGenerator.showAndWait();
+    } catch (Exception e) {
+        showAlert("Error", "Gagal membuka generator laporan: " + e.getMessage(), Alert.AlertType.ERROR);
+    }
+}
+
+private void openMaintenanceReportGenerator() {
+    try {
+        ReportGenerator reportGenerator = new ReportGenerator(primaryStage, inventoryData, borrowData, maintenanceData);
+        reportGenerator.showAndWait();
+    } catch (Exception e) {
+        showAlert("Error", "Gagal membuka generator laporan: " + e.getMessage(), Alert.AlertType.ERROR);
+    }
+}
     
     public static void main(String[] args) {
         launch(args);
