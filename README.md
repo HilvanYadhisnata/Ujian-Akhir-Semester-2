@@ -1,18 +1,100 @@
-## Getting Started
+# Sistem Manajemen Inventaris & Peminjaman
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+Aplikasi berbasis Java untuk mengelola data inventaris, peminjaman, dan perawatan barang. Aplikasi ini menggunakan file CSV sebagai media penyimpanan data dan antarmuka berbasis teks.
 
-## Folder Structure
+## Fitur
 
-The workspace contains two folders by default, where:
+- **Manajemen Inventaris**
+  - Tambah, lihat, dan kelola data barang.
+  - Data disimpan dalam `inventory.csv`.
 
-- `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
+- **Peminjaman Barang**
+  - Formulir peminjaman barang.
+  - Pencatatan data peminjam dan tanggal peminjaman.
+  - Data disimpan dalam `borrowing.csv`.
 
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
+- **Pengembalian Barang**
+  - Formulir pengembalian.
+  - Pemeriksaan ketersediaan barang.
 
-> If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
+- **Perawatan Barang**
+  - Formulir perawatan untuk mencatat barang yang perlu diperbaiki.
+  - Data disimpan dalam `maintenance.csv`.
 
-## Dependency Management
+- **Laporan**
+  - Laporan peminjaman, perawatan, dan inventaris.
+  - Cetak data dalam format teks.
 
-The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
+## Struktur Proyek
+
+```
+src/
+├── AvailabilityChecker.java
+├── BorrowForm.java
+├── BorrowManager.java
+├── BorrowRecord.java
+├── CSVManager.java
+├── InventoryForm.java
+├── InventoryItem.java
+├── Main.java
+├── MaintenanceForm.java
+├── MaintenanceManager.java
+├── MaintenanceRecord.java
+├── PrintUtilities.java
+├── ReportGenerator.java
+├── ReturnForm.java
+
+borrowing.csv
+inventory.csv
+maintenance.csv
+README.md
+```
+
+## Cara Menjalankan
+
+1. **Kompilasi Semua File Java**
+   Jalankan perintah berikut di terminal:
+
+   ```bash
+   javac src/*.java
+   ```
+
+2. **Jalankan Program**
+   Pastikan berada di direktori `src`, lalu jalankan:
+
+   ```bash
+   java Main
+   ```
+
+## Dependensi
+
+Tidak menggunakan dependensi eksternal. Seluruh program ditulis menggunakan pustaka standar Java (`java.io`, `java.util`, dll).
+
+## Format CSV
+
+- **inventory.csv**
+  ```
+  ID,Nama,Kategori,Jumlah,Kondisi
+  ```
+
+- **borrowing.csv**
+  ```
+  ID Peminjaman,ID Barang,Nama Peminjam,Tanggal Pinjam
+  ```
+
+- **maintenance.csv**
+  ```
+  ID Perawatan,ID Barang,Deskripsi Masalah,Tanggal
+  ```
+
+## Kontributor
+
+- Hilvan Yadhisnata
+- M. Hafizul Hadi
+- Pria Pamungkas
+- Rizka Febriyanti
+- Tanri Vebriansyah
+
+## Lisensi
+
+Proyek ini dibuat untuk keperluan pembelajaran dan tugas UTS. Bebas digunakan untuk edukasi.
