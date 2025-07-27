@@ -97,4 +97,4 @@ Tidak menggunakan dependensi eksternal. Seluruh program ditulis menggunakan pust
 
 ## Lisensi
 
-Proyek ini dibuat untuk keperluan pembelajaran dan tugas UTS. Bebas digunakan untuk edukasi.
+Proyek ini dibuat untuk keperluan pembelajaran dan tugas UAS. Bebas digunakan untuk edukasi.
